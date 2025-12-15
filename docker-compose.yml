@@ -1,0 +1,128 @@
+services:
+  gateway:
+    build: .
+    container_name: gateway
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - db
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+  db:
+    image: postgres:16-alpine
+    container_name: tank-simulator-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+    profiles:
+      - development
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    entrypoint: ["/bin/sh", "/files/init.sh"]
+    environment:
+      # Basic Configuration
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - DB_SQLITE_POOL_SIZE=4
+      - DB_SQLITE_VACUUM_ON_STARTUP=true
+      - N8N_GIT_NODE_DISABLE_BARE_REPOS=true
+      
+      # Timezone
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - TZ=${GENERIC_TIMEZONE}
+
+      # OpenAI API Key
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+      # Postgres DB Connection
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n:/files
+    depends_on:
+      - db
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+  chat-ui:
+    image: nginx:alpine
+    container_name: chat-ui
+    restart: unless-stopped
+    ports:
+      - "8083:80" 
+    volumes:
+      - ./chat-ui:/usr/share/nginx/html:ro  
+    depends_on:
+      - n8n
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    entrypoint: ["/bin/bash", "/start-ollama.sh"]
+    volumes:
+      - ./ollama/start-ollama.sh:/start-ollama.sh
+      - ollama_data:/root/.ollama
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+      
+volumes:
+  db_data:
+  n8n_data:
+  ollama_data:

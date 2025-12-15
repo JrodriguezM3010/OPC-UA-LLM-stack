@@ -1,0 +1,50 @@
+opcua:
+  url: "opc.tcp://192.168.10.3:4840"
+  user: "admin"
+  password: "${OPCUA_PASSWORD}"  
+
+postgres:
+  user: "${POSTGRES_USER}"
+  password: "${POSTGRES_PASSWORD}"
+  host: "db"
+  port: "5432"
+  db: "${POSTGRES_DB}"
+  table: "Tank_Simulator"
+
+table:
+  name: "Tank Simulator"
+  target_id: 1
+
+sync:
+  interval_seconds: 1
+  source_field: "source"
+  timestamp_field: "updated_at"
+
+mapping:
+  opc_to_db:
+    pump_speed: "Pump_Speed(%)"
+    pump_running: "Pump_running"
+    level: "Level"
+    alarm: "Alarm"
+    outlet_valve: "Outlet_Valve(%)"
+    
+  commands_to_db:
+    OutletValve_SP: "OutletValve_SP"
+    TankLevel_SP: "TankLevel_SP"
+    RemoteStart: "RemoteStart"
+
+nodes:
+  variables:
+    pump_speed: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.pump_speed_register"
+    pump_running: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.pump_running"
+    level: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Level_register"
+    alarm: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Alarm_high_level"
+    outlet_valve: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.OutletValve"
+
+  commands:
+    OutletValve_SP: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Tank01.commands.OutletValve_SP"
+    TankLevel_SP: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Tank01.commands.TankLevel_SP"
+    RemoteStart: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Tank01.commands.RemoteStart"
+
+
+

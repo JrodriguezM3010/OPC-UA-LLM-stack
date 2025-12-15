@@ -1,0 +1,678 @@
+{
+  "name": "Tank simulator local ollama",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.message }}",
+        "options": {
+          "systemMessage": "Your name is Loki, a database control agent. Your only task is to read values from and write values to a single row in the Tank_Simulator table.\n\nImportant: Never respond with tool calls alone. Always complete the full process and provide a response.\n\nWhen asked to check, show, get, or display any value:\n\n1. Respond with the specific value requested.\n\nWhen asked to set, update, or change a value:\n\n1. Use the update_value tools to make the requested change\n2. Respond with a confirmation message stating what was changed\n\nAvailable tools and their correct usage:\n\n- get_current_state to read values\n- update_value, update_value2, update_value3 to modify values\n\nRecognized fields and synonyms:\nLevel (tank level, height)\nSetpoint (tank setpoint, set point, SP, target)\nRemoteStart (system , start pump, run, remote start, turn on pump, stop pump, turn off pump)\nOutlet_Valve(%) (outlet valve, drain valve, output valve, discharge valve)\nPump_Speed(%) (pump speed, motor speed, speed)\nPump_running (pump running, pump status) - read-only\nAlarm (alarm, alert, warning)\n\nResponse rules:\n\n- For read requests, respond only with the requested value(s). Do not provide explanations, definitions, or additional information\n- For write requests, do the change and respond with a confirmation of the change made\n- Always use the get_current_state tool to retrieve actual values from the database before responding\n- Never use example values or make assumptions about current values\n- Confirmation responses should be simple statements\n\nError responses:\nError: The value must be a number"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "41137dfd-3dbe-48bd-8864-ab4ab3e20381",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1bb5899d-209a-48e6-b9c4-b60d81e29ee3",
+      "name": "Webhook",
+      "webhookId": "78198666-8bbe-4440-b19c-30eace04e89d"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        544,
+        0
+      ],
+      "id": "6478c5aa-b691-4396-8d49-c89b611684dd",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:3b-instruct-q4_K_M",
+        "options": {
+          "numBatch": 1024
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        16,
+        256
+      ],
+      "id": "3da6aefc-6899-4552-9a8b-95377146f6e6",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollama-account-1",
+          "name": "Ollama account 1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Tank_Simulator",
+          "mode": "list",
+          "cachedResultName": "Tank_Simulator"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "id",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        192,
+        256
+      ],
+      "id": "d1321c08-ab11-4976-a9d8-664fb4f99253",
+      "name": "get_current_state",
+      "credentials": {
+        "postgres": {
+          "id": "postgres-account-1",
+          "name": "Postgres account 1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Tank_Simulator",
+          "mode": "list",
+          "cachedResultName": "Tank_Simulator"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "=1",
+            "OutletValve_SP": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('OutletValve_SP', ``, 'number') }}",
+            "source": "ai"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Level",
+              "displayName": "Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Outlet_Valve(%)",
+              "displayName": "Outlet_Valve(%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Pump_Speed(%)",
+              "displayName": "Pump_Speed(%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Pump_running",
+              "displayName": "Pump_running",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Alarm",
+              "displayName": "Alarm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "OutletValve_SP",
+              "displayName": "OutletValve_SP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "TankLevel_SP",
+              "displayName": "TankLevel_SP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RemoteStart",
+              "displayName": "RemoteStart",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        320,
+        256
+      ],
+      "id": "54741132-8815-4124-9a99-945766cbbf97",
+      "name": "update_value",
+      "credentials": {
+        "postgres": {
+          "id": "postgres-account-1",
+          "name": "Postgres account 1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Tank_Simulator",
+          "mode": "list",
+          "cachedResultName": "Tank_Simulator"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "=1",
+            "source": "ai",
+            "RemoteStart": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('RemoteStart', ``, 'boolean') }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Level",
+              "displayName": "Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Outlet_Valve(%)",
+              "displayName": "Outlet_Valve(%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Pump_Speed(%)",
+              "displayName": "Pump_Speed(%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Pump_running",
+              "displayName": "Pump_running",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Alarm",
+              "displayName": "Alarm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "OutletValve_SP",
+              "displayName": "OutletValve_SP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TankLevel_SP",
+              "displayName": "TankLevel_SP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RemoteStart",
+              "displayName": "RemoteStart",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        576,
+        256
+      ],
+      "id": "d1cb3013-19ec-431c-bce2-c0889fc40f39",
+      "name": "update_value3",
+      "credentials": {
+        "postgres": {
+          "id": "postgres-account-1",
+          "name": "Postgres account 1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Tank_Simulator",
+          "mode": "list",
+          "cachedResultName": "Tank_Simulator"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "=1",
+            "source": "ai",
+            "TankLevel_SP": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('TankLevel_SP', ``, 'number') }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Level",
+              "displayName": "Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Outlet_Valve(%)",
+              "displayName": "Outlet_Valve(%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Pump_Speed(%)",
+              "displayName": "Pump_Speed(%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Pump_running",
+              "displayName": "Pump_running",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Alarm",
+              "displayName": "Alarm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "OutletValve_SP",
+              "displayName": "OutletValve_SP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TankLevel_SP",
+              "displayName": "TankLevel_SP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RemoteStart",
+              "displayName": "RemoteStart",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        448,
+        256
+      ],
+      "id": "e7073572-68ed-4b82-a552-562c8aae1599",
+      "name": "update_value2",
+      "credentials": {
+        "postgres": {
+          "id": "postgres-account-1",
+          "name": "Postgres account 1"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_current_state": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_value": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_value3": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_value2": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ad88c2c2-f27f-41c1-a63f-8d852cc8046a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "373c0cc83afa0dc2bc3aadc1189015393dce143638950496c4f7335f6e843646"
+  },
+  "id": "AI_Stack_Ollama",
+  "tags": []
+}
