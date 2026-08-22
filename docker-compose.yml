@@ -1,11 +1,21 @@
 services:
   gateway:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
     container_name: gateway
-    env_file:
-      - .env
-    volumes:
-      - ./logs:/app/logs
+    environment:
+      vPLC_Runtime: ${vPLC_Runtime}
+      OPCUA_URL: ${OPCUA_URL}
+      OPCUA_USER: ${OPCUA_USER:-}
+      OPCUA_PASSWORD: ${OPCUA_PASSWORD:-}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     depends_on:
       - db
@@ -15,7 +25,7 @@ services:
         max-size: "1m"
         max-file: "3"
   db:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     container_name: tank-simulator-db
     restart: unless-stopped
     ports:
@@ -26,14 +36,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     logging:
       driver: json-file
       options:
         max-size: "1m"
         max-file: "3"
   adminer:
-    image: adminer:latest
+    image: adminer:6.0.1
     container_name: adminer
     restart: unless-stopped
     ports:
@@ -48,7 +58,7 @@ services:
         max-size: "1m"
         max-file: "3"
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    image: n8nio/n8n:2.35.7
     container_name: n8n
     restart: unless-stopped
     ports:
@@ -91,7 +101,7 @@ services:
         max-file: "3"
 
   chat-ui:
-    image: nginx:alpine
+    image: nginx:1.31.4-alpine
     container_name: chat-ui
     restart: unless-stopped
     ports:
@@ -107,7 +117,7 @@ services:
         max-file: "3"
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.32.15
     container_name: ollama
     restart: unless-stopped
     ports:

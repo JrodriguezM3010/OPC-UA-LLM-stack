@@ -1,0 +1,5 @@
+FROM ollama/ollama:0.32.15
+
+COPY ollama/start-ollama.sh /start-ollama.sh
+
+ENTRYPOINT ["/bin/bash", "/start-ollama.sh"]

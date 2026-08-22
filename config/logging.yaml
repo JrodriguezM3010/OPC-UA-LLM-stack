@@ -13,15 +13,6 @@ handlers:
     formatter: standard
     stream: ext://sys.stdout
 
-  file:
-    class: logging.handlers.RotatingFileHandler
-    level: DEBUG
-    formatter: standard
-    filename: logs/gateway.log
-    maxBytes: 10485760  # 10MB
-    backupCount: 5
-    encoding: utf8
-
 loggers:
   opcua:
     level: WARNING
@@ -33,4 +24,4 @@ loggers:
 
 root:
   level: DEBUG
-  handlers: [console, file]
+  handlers: [console]

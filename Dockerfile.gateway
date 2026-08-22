@@ -1,0 +1,12 @@
+FROM python:3.11.16-slim
+
+WORKDIR /app
+
+COPY gateway/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY gateway/ ./gateway/
+COPY config/ ./config/
+
+
+CMD ["python", "gateway/main.py"]

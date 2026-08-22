@@ -5,12 +5,16 @@ import time
 logger = logging.getLogger(__name__)
 
 class OPCUAClient:
-    def __init__(self, url, user, password):
+    def __init__(self, url, user=None, password=None):
         self.url = url
-        self.user = user
-        self.password = password
+        self.user = (user or "").strip() or None
+        self.password = (password or "").strip() or None
         self.client = Client(url)
         self.nodes = {}
+
+    @property
+    def anonymous(self):
+        return self.user is None
 
     def connect(self, logger=None, retry_interval=5):
         while True:
@@ -21,11 +25,15 @@ class OPCUAClient:
                 except Exception:
                     pass  # Ignore errors if not connected
 
-                self.client.set_user(self.user)
-                self.client.set_password(self.password)
+                self.client = Client(self.url)
+                if not self.anonymous:
+                    self.client.set_user(self.user)
+                    if self.password is not None:
+                        self.client.set_password(self.password)
                 self.client.connect()
                 if logger:
-                    logger.info("OPC UA Connected")
+                    mode = "anonymous" if self.anonymous else f"user '{self.user}'"
+                    logger.info(f"OPC UA Connected ({mode})")
                 break
             except Exception as e:
                 if logger:
@@ -37,7 +45,14 @@ class OPCUAClient:
         logger.info(f"Nodes loaded: {list(self.nodes.keys())}")
 
     def read_all(self):
-        return {k: n.get_value() for k, n in self.nodes.items()}
+        result = {}
+        for k, n in self.nodes.items():
+            try:
+                result[k] = n.get_value()
+            except Exception as e:
+                logger.error(f"Failed to read node '{k}' ({n.nodeid}): {e}")
+                raise
+        return result
 
     def write(self, node_name, value):
         if node_name not in self.nodes:

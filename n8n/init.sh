@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-if [ -f /tmp/n8n_imported.flag ]; then
+if [ -f /home/node/.n8n/imported.flag ]; then
   echo "n8n credentials and workflow already imported, skipping..."
 else
   echo "Importing workflow into n8n..."
@@ -21,7 +21,8 @@ else
   echo "Importing credentials into n8n..."
   n8n import:credentials --separate --input=/tmp/credentials || true
 
-  touch /tmp/n8n_imported.flag
+  mkdir -p /home/node/.n8n
+  touch /home/node/.n8n/imported.flag
 fi
 
 n8n update:workflow --id=AI_Stack_GPT --active=true
