@@ -1,0 +1,132 @@
+# Deployment stack — pulls published images. No source tree, no build step.
+#
+#   vPLC_Runtime=wsl docker compose up -d
+#
+# Tags are pinned, not variable: this file describes exactly one release, so a
+# deploy is reproducible. Images are built with `make push` and pinned to the
+# VERSION file of this repo. The vPLC runtime and the OTee OPC UA server
+# deploy separately.
+#
+# Service names match docker-compose.yml so the credentials in n8n/credentials
+# resolve "db" and "ollama" in development and in deployment alike.
+#
+# Required in .env:
+#   vPLC_Runtime, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+#
+# Optional in .env:
+#   OPENAI_API_KEY    only for the GPT workflow; without it use Ollama
+#   OPCUA_URL         defaults to the OPC UA server on the docker host
+#   OPCUA_USER        empty means an anonymous connection
+#   OPCUA_PASSWORD
+#   GENERIC_TIMEZONE
+
+name: otee-tank-ai
+
+services:
+  gateway:
+    image: juanotee/tank-ai-gateway:0.0.1
+    environment:
+      vPLC_Runtime: ${vPLC_Runtime:?vPLC_Runtime must be set}
+      OPCUA_URL: ${OPCUA_URL:-opc.tcp://host.docker.internal:4840}
+      OPCUA_USER: ${OPCUA_USER:-}
+      OPCUA_PASSWORD: ${OPCUA_PASSWORD:-}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+  db:
+    image: juanotee/tank-ai-db:0.0.1
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+  n8n:
+    image: juanotee/tank-ai-n8n:0.0.1
+    environment:
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      NODE_ENV: production
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      DB_SQLITE_POOL_SIZE: "4"
+      DB_SQLITE_VACUUM_ON_STARTUP: "true"
+      N8N_GIT_NODE_DISABLE_BARE_REPOS: "true"
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Europe/Oslo}
+      TZ: ${GENERIC_TIMEZONE:-Europe/Oslo}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      POSTGRES_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n-data:/home/node/.n8n
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+  chat-ui:
+    image: juanotee/tank-ai-chatui:0.0.1
+    ports:
+      - "8083:80"
+    depends_on:
+      - n8n
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+  ollama:
+    image: juanotee/tank-ai-ollama:0.0.1
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+volumes:
+  db-data:
+  n8n-data:
+  ollama-data:

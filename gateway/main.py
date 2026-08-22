@@ -46,6 +46,8 @@ def main():
             except Exception as e:
                 logger.error(f"OPC UA error: {e}. Reconnecting...")
                 opc.connect(logger=logger, retry_interval=5)
+                opc.load_nodes(all_nodes)
+                continue
 
             # DB read
             try:
@@ -53,6 +55,7 @@ def main():
             except Exception as e:
                 logger.error(f"DB error: {e}. Reconnecting...")
                 db.connect(logger=logger, retry_interval=5)
+                continue
 
             # Detect OPC UA changes and sync to DB 
             opc_changes = detector.detect_opc_change(current_opc, detector.last_db)

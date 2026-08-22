@@ -1,13 +1,13 @@
 opcua:
-  url: "opc.tcp://192.168.10.3:4840"
-  user: "admin"
-  password: "${OPCUA_PASSWORD}"  
+  url: "${OPCUA_URL}"
+  user: "${OPCUA_USER}"
+  password: "${OPCUA_PASSWORD}"
 
 postgres:
   user: "${POSTGRES_USER}"
   password: "${POSTGRES_PASSWORD}"
-  host: "db"
-  port: "5432"
+  host: "${POSTGRES_HOST}"
+  port: "${POSTGRES_PORT}"
   db: "${POSTGRES_DB}"
   table: "Tank_Simulator"
 
@@ -35,16 +35,27 @@ mapping:
 
 nodes:
   variables:
-    pump_speed: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.pump_speed_register"
-    pump_running: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.pump_running"
-    level: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Level_register"
-    alarm: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Alarm_high_level"
-    outlet_valve: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.OutletValve"
+    pump_speed: "ns=1;s=${vPLC_Runtime}.Tags.config.resource1.TankController.instance0.Tank01.status.PumpSpeed_PV"
+    pump_running: "ns=1;s=${vPLC_Runtime}.Tags.config.resource1.TankController.instance0.Tank01.status.PumpRunningFeedback"
+    level: "ns=1;s=${vPLC_Runtime}.Tags.config.resource1.TankController.instance0.Tank01.status.TankLevel_PV"
+    alarm: "ns=1;s=${vPLC_Runtime}.Tags.config.resource1.TankController.instance0.Tank01.status.LampHighLevel"
+    outlet_valve: "ns=1;s=${vPLC_Runtime}.Tags.config.resource1.TankController.instance0.Tank01.commands.OutletValve_SP"
 
   commands:
-    OutletValve_SP: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Tank01.commands.OutletValve_SP"
-    TankLevel_SP: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Tank01.commands.TankLevel_SP"
-    RemoteStart: "ns=1;s=raspberry-pi-5_rt_1.Tags.config.resource1.TankController.instance0.Tank01.commands.RemoteStart"
+    OutletValve_SP: "ns=1;s=${vPLC_Runtime}.Tags.config.resource1.TankController.instance0.Tank01.commands.OutletValve_SP"
+    TankLevel_SP: "ns=1;s=${vPLC_Runtime}.Tags.config.resource1.TankController.instance0.Tank01.commands.TankLevel_SP"
+    RemoteStart: "ns=1;s=${vPLC_Runtime}.Tags.config.resource1.TankController.instance0.Tank01.commands.RemoteStart"
 
+#nodes:
+#  variables:
+#    pump_speed: "ns=1;s=demo_tank.Tags.config.resource1.TankController.instance0.pump_speed_register"
+#    pump_running: "ns=1;s=demo_tank.Tags.config.resource1.TankController.instance0.pump_running"
+#    level: "ns=1;s=demo_tank.Tags.config.resource1.TankController.instance0.Level_register"
+#    alarm: "ns=1;s=demo_tank.Tags.config.resource1.TankController.instance0.Alarm_high_level"
+#    outlet_valve: "ns=1;s=demo_tank.Tags.config.resource1.TankController.instance0.OutletValve"
 
+#  commands:
+#    OutletValve_SP: "ns=1;s=demo_tank.Tags.config.resource1.TankController.instance0.Tank01.commands.OutletValve_SP"
+#    TankLevel_SP: "ns=1;s=demo_tank.Tags.config.resource1.TankController.instance0.Tank01.commands.TankLevel_SP"
+#    RemoteStart: "ns=1;s=demo_tank.Tags.config.resource1.TankController.instance0.Tank01.commands.RemoteStart"
 
