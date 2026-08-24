@@ -1,4 +1,7 @@
-# Deployment stack — pulls published images. No source tree, no build step.
+# Host-network variant of compose.yaml, for devices whose firewall blocks Docker's published ports.
+#
+# The services reached from outside bind the host directly, so they answer on
+# every interface the host has.
 #
 # Required in .env:
 #   vPLC_Runtime, OPCUA_URL, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
@@ -42,6 +45,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -58,6 +63,7 @@ services:
 
   n8n:
     image: juanotee/tank-ai-n8n:0.0.1
+    network_mode: host
     environment:
       N8N_HOST: 0.0.0.0
       N8N_PORT: ${N8N_PORT:-5678}
@@ -74,13 +80,11 @@ services:
       GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Europe/Oslo}
       TZ: ${GENERIC_TIMEZONE:-Europe/Oslo}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      POSTGRES_HOST: db
+      POSTGRES_HOST: 127.0.0.1
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      OLLAMA_URL: http://ollama:11434
-    ports:
-      - "${N8N_PORT:-5678}:${N8N_PORT:-5678}"
+      OLLAMA_URL: http://127.0.0.1:11434
     volumes:
       - n8n-data:/home/node/.n8n
     depends_on:
@@ -95,11 +99,10 @@ services:
 
   chat-ui:
     image: juanotee/tank-ai-chatui:0.0.1
+    network_mode: host
     environment:
       CHAT_UI_PORT: ${CHAT_UI_PORT:-8083}
-      N8N_UPSTREAM: http://n8n:5678
-    ports:
-      - "${CHAT_UI_PORT:-8083}:${CHAT_UI_PORT:-8083}"
+      N8N_UPSTREAM: http://127.0.0.1:5678
     depends_on:
       - n8n
     restart: unless-stopped
@@ -112,7 +115,7 @@ services:
   ollama:
     image: juanotee/tank-ai-ollama:0.0.1
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama-data:/root/.ollama
     restart: unless-stopped
