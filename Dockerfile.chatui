@@ -1,3 +1,7 @@
 FROM nginx:1.31.4-alpine
 
+ENV CHAT_UI_PORT=8083
+ENV N8N_UPSTREAM=http://n8n:5678
+
 COPY chat-ui/ /usr/share/nginx/html/
+COPY chat-ui/nginx.conf.template /etc/nginx/templates/default.conf.template

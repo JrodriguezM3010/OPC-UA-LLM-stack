@@ -14,6 +14,8 @@ else
     sed -e "s|\${POSTGRES_DB}|$POSTGRES_DB|g" \
         -e "s|\${POSTGRES_USER}|$POSTGRES_USER|g" \
         -e "s|\${POSTGRES_PASSWORD}|$POSTGRES_PASSWORD|g" \
+        -e "s|\${POSTGRES_HOST}|$POSTGRES_HOST|g" \
+        -e "s|\${OLLAMA_URL}|$OLLAMA_URL|g" \
         -e "s|\${OPENAI_API_KEY}|$OPENAI_API_KEY|g" \
         "$cred" > "/tmp/credentials/$(basename $cred)"
   done

@@ -1,0 +1,9 @@
+server {
+    listen ${CHAT_UI_PORT};
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location /webhook/ {
+        proxy_pass ${N8N_UPSTREAM};
+    }
+}
