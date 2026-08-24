@@ -6,7 +6,7 @@ services:
     container_name: gateway
     environment:
       vPLC_Runtime: ${vPLC_Runtime}
-      OPCUA_URL: ${OPCUA_URL}
+      OPCUA_URL: ${OPCUA_URL:-opc.tcp://host.docker.internal:4840}
       OPCUA_USER: ${OPCUA_USER:-}
       OPCUA_PASSWORD: ${OPCUA_PASSWORD:-}
       POSTGRES_HOST: db
@@ -62,15 +62,18 @@ services:
     container_name: n8n
     restart: unless-stopped
     ports:
-      - "5678:5678"
+      - "${N8N_PORT:-5678}:${N8N_PORT:-5678}"
     entrypoint: ["/bin/sh", "/files/init.sh"]
     environment:
       # Basic Configuration
       - N8N_HOST=0.0.0.0
-      - N8N_PORT=5678
+      - N8N_PORT=${N8N_PORT:-5678}
       - N8N_PROTOCOL=http
+      - N8N_SECURE_COOKIE=false
+      - N8N_RUNNERS_GRANT_TOKEN_TTL=300
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
       - NODE_ENV=production
-      - N8N_RUNNERS_ENABLED=true
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
       - DB_SQLITE_POOL_SIZE=4
       - DB_SQLITE_VACUUM_ON_STARTUP=true
@@ -88,7 +91,10 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-      
+
+      # Ollama connection used by the imported credential
+      - OLLAMA_URL=http://ollama:11434
+
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n:/files
@@ -104,10 +110,14 @@ services:
     image: nginx:1.31.4-alpine
     container_name: chat-ui
     restart: unless-stopped
+    environment:
+      CHAT_UI_PORT: ${CHAT_UI_PORT:-8083}
+      N8N_UPSTREAM: http://n8n:5678
     ports:
-      - "8083:80" 
+      - "${CHAT_UI_PORT:-8083}:${CHAT_UI_PORT:-8083}"
     volumes:
-      - ./chat-ui:/usr/share/nginx/html:ro  
+      - ./chat-ui:/usr/share/nginx/html:ro
+      - ./chat-ui/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       - n8n
     logging:
