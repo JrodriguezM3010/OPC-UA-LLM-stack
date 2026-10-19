@@ -78,14 +78,146 @@
       color: #ff9800;
       font-style: italic;
     }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    #open-mapping {
+      position: absolute;
+      right: 0;
+    }
+    button.ghost {
+      background: transparent;
+      color: #ff9800;
+      border: 1px solid #ff9800;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    button.ghost:hover {
+      background: #2c2c2c;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    /* Tag mapping */
+    dialog {
+      width: min(760px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      box-sizing: border-box;
+      padding: 20px;
+      background: #232323;
+      color: #f5f5f5;
+      border: 1px solid #333;
+      border-radius: 12px;
+      color-scheme: dark;
+    }
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.6);
+    }
+    dialog h2 {
+      margin: 0;
+      color: #ff9800;
+      font-size: 1.2em;
+    }
+    .dlg-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .muted { color: #9e9e9e; }
+    .small { font-size: 12px; }
+    .field {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 14px 0;
+    }
+    #runtime, .map-input {
+      padding: 8px 10px;
+      background: #181818;
+      color: #f5f5f5;
+      border: 1px solid #444;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    #runtime { flex: 1; }
+    #tag-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #tag-table th {
+      text-align: left;
+      font-weight: normal;
+      font-size: 12px;
+      color: #9e9e9e;
+      padding: 4px 6px;
+    }
+    #tag-table td {
+      padding: 6px;
+      border-top: 1px solid #333;
+      vertical-align: top;
+    }
+    #tag-table td:first-child {
+      width: 35%;
+      overflow-wrap: anywhere;
+    }
+    .tag-key { font-weight: bold; }
+    .map-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+    }
+    .map-input.invalid { border-color: #ef5350; }
+    .err {
+      color: #ef5350;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-top: 11px;
+      border-radius: 50%;
+      background: #616161;
+    }
+    .dot.good { background: #66bb6a; }
+    .dot.missing { background: #ef5350; }
+    .dot.waiting { background: #ffb74d; }
+    #mapping-msg {
+      min-height: 1.2em;
+      margin: 12px 0 0;
+      font-size: 14px;
+    }
+    #mapping-msg.error { color: #ef5350; }
+    .dlg-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
     @media (max-width: 600px) {
       body { padding: 10px; }
       #messages { height: 50vh; }
+      header { flex-direction: column; margin-bottom: 10px; }
+      #open-mapping { position: static; }
     }
   </style>
 </head>
 <body>
-  <h1>Local AI agent</h1>
+  <header>
+    <h1>Local AI agent</h1>
+    <button type="button" class="ghost" id="open-mapping">Tag mapping</button>
+  </header>
   <div id="messages">
     <div class="message ai">Hello! I am Loki, an AI agent. Ask me to read/write in the Postgres DB.</div>
   </div>
@@ -93,6 +225,34 @@
     <input type="text" id="user-input" placeholder="Type your message..." autofocus>
     <button onclick="sendMessage()">Send</button>
   </div>
+
+  <dialog id="mapping" aria-labelledby="mapping-title">
+    <div class="dlg-head">
+      <h2 id="mapping-title">Tag mapping</h2>
+      <span id="link-status" class="muted small"></span>
+    </div>
+    <p class="muted small">
+      Pick the vPLC runtime, then the OPC UA node each tag reads. Saving checks
+      every node against the server and applies it straight away.
+    </p>
+    <label class="field">
+      <span>Runtime</span>
+      <select id="runtime"></select>
+    </label>
+    <table id="tag-table">
+      <thead><tr><th>Tag</th><th>OPC UA node, below the runtime</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <datalist id="nodes-bool"></datalist>
+    <datalist id="nodes-number"></datalist>
+    <datalist id="nodes-any"></datalist>
+    <p id="mapping-msg" class="muted"></p>
+    <div class="dlg-actions">
+      <button type="button" class="ghost" id="refresh-nodes">Refresh nodes</button>
+      <button type="button" class="ghost" id="close-mapping">Close</button>
+      <button type="button" id="save-mapping">Save</button>
+    </div>
+  </dialog>
 
   <script>
     const messagesDiv = document.getElementById('messages');
@@ -156,6 +316,195 @@
         sendMessage();
         }
     });
+
+    // ---- Tag mapping: which OPC UA node each tag reads ----
+    const mappingDialog = document.getElementById('mapping');
+    const runtimeSelect = document.getElementById('runtime');
+    const tagRows = document.querySelector('#tag-table tbody');
+    const mappingMsg = document.getElementById('mapping-msg');
+    const linkStatus = document.getElementById('link-status');
+    const saveButton = document.getElementById('save-mapping');
+    const STATUS = {
+        good: 'Reading',
+        missing: 'Not found on the server',
+        waiting: 'Waiting for the gateway',
+        unmapped: 'Not mapped',
+    };
+    let activeRuntime = '';
+
+    async function api(path, options = {}) {
+        const res = await fetch('/api' + path, options);
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+        const detail = body.detail;
+        const message = typeof detail === 'string' ? detail : detail?.message;
+        const error = new Error(message || (res.status >= 502 ? 'Gateway not reachable' : `Error ${res.status}`));
+        error.errors = detail?.errors || {};
+        throw error;
+        }
+        return body;
+    }
+
+    function setMappingMsg(text, isError = false) {
+        mappingMsg.textContent = text;
+        mappingMsg.className = isError ? 'error' : 'muted';
+    }
+
+    function showStatus(map) {
+        activeRuntime = map.active_runtime;
+        linkStatus.textContent = map.connected
+        ? `Connected · runtime ${map.active_runtime || 'none'}`
+        : 'OPC UA server not connected';
+        for (const tag of map.tags) {
+        const dot = tagRows.querySelector(`tr[data-key="${CSS.escape(tag.key)}"] .dot`);
+        if (!dot) continue;
+        dot.className = `dot ${tag.status}`;
+        dot.title = STATUS[tag.status];
+        }
+    }
+
+    function renderTags(map) {
+        tagRows.replaceChildren(...map.tags.map(tag => {
+        const row = document.createElement('tr');
+        row.dataset.key = tag.key;
+
+        const name = document.createElement('td');
+        const key = document.createElement('div');
+        key.className = 'tag-key';
+        key.textContent = tag.key;
+        const meta = document.createElement('div');
+        meta.className = 'muted small';
+        meta.textContent = `${tag.column} · ${tag.kind || 'any type'}${tag.writable ? ' · AI writes' : ''}`;
+        name.append(key, meta);
+
+        const node = document.createElement('td');
+        const field = document.createElement('input');
+        field.className = 'map-input';
+        field.value = tag.path;
+        field.placeholder = 'Not mapped';
+        field.spellcheck = false;
+        field.setAttribute('list', `nodes-${tag.kind || 'any'}`);
+        field.setAttribute('aria-label', `OPC UA node for ${tag.key}`);
+        const err = document.createElement('div');
+        err.className = 'err';
+        node.append(field, err);
+
+        const state = document.createElement('td');
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        state.append(dot);
+
+        row.append(name, node, state);
+        return row;
+        }));
+        showStatus(map);
+    }
+
+    async function loadRuntimes(selected) {
+        let names = [];
+        try {
+        names = (await api('/runtimes')).runtimes;
+        } catch (error) {
+        setMappingMsg(error.message, true);
+        }
+        const options = [new Option(`Auto-detect${activeRuntime ? ` (${activeRuntime})` : ''}`, '')];
+        for (const name of names) options.push(new Option(name, name));
+        if (selected && !names.includes(selected)) {
+        options.push(new Option(`${selected} (not on the server)`, selected));
+        }
+        runtimeSelect.replaceChildren(...options);
+        runtimeSelect.value = selected;
+    }
+
+    // Fill the node suggestions, one list per type, so each tag only offers
+    // nodes its DB column can hold.
+    async function loadNodes(refresh = false) {
+        const runtime = runtimeSelect.value || activeRuntime;
+        const lists = { bool: [], number: [], any: [] };
+        if (!runtime) {
+        setMappingMsg('Select a runtime to list its nodes');
+        } else {
+        setMappingMsg(`Browsing ${runtime}…`);
+        try {
+            const query = `?runtime=${encodeURIComponent(runtime)}${refresh ? '&refresh=true' : ''}`;
+            const { nodes } = await api('/nodes' + query);
+            for (const n of nodes) {
+            lists[n.kind].push(n.path);
+            lists.any.push(n.path);
+            }
+            setMappingMsg(`${nodes.length} nodes on ${runtime}`);
+        } catch (error) {
+            setMappingMsg(error.message, true);
+        }
+        }
+        for (const [kind, paths] of Object.entries(lists)) {
+        document.getElementById(`nodes-${kind}`).replaceChildren(...paths.map(path => {
+            const option = document.createElement('option');
+            option.value = path;
+            return option;
+        }));
+        }
+    }
+
+    async function openMapping() {
+        mappingDialog.showModal();
+        setMappingMsg('Loading…');
+        try {
+        const map = await api('/tagmap');
+        renderTags(map);
+        await loadRuntimes(map.runtime);
+        await loadNodes();
+        } catch (error) {
+        setMappingMsg(error.message, true);
+        }
+    }
+
+    async function refreshStatus() {
+        if (!mappingDialog.open) return;
+        try {
+        showStatus(await api('/tagmap'));
+        } catch (error) {
+        setMappingMsg(error.message, true);
+        }
+    }
+
+    async function saveMapping() {
+        const paths = {};
+        for (const row of tagRows.rows) {
+        const field = row.querySelector('input');
+        paths[row.dataset.key] = field.value.trim();
+        field.classList.remove('invalid');
+        row.querySelector('.err').textContent = '';
+        }
+        saveButton.disabled = true;
+        setMappingMsg('Checking against the server…');
+        try {
+        const map = await api('/tagmap', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ runtime: runtimeSelect.value, paths }),
+        });
+        renderTags(map);
+        setMappingMsg('Saved. The gateway applies it within a few seconds.');
+        setTimeout(refreshStatus, 2500);
+        } catch (error) {
+        setMappingMsg(error.message, true);
+        for (const [key, text] of Object.entries(error.errors)) {
+            const row = tagRows.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
+            if (!row) continue;
+            row.querySelector('input').classList.add('invalid');
+            row.querySelector('.err').textContent = text;
+        }
+        } finally {
+        saveButton.disabled = false;
+        }
+    }
+
+    document.getElementById('open-mapping').addEventListener('click', openMapping);
+    document.getElementById('close-mapping').addEventListener('click', () => mappingDialog.close());
+    document.getElementById('refresh-nodes').addEventListener('click', () => loadNodes(true));
+    saveButton.addEventListener('click', saveMapping);
+    runtimeSelect.addEventListener('change', () => loadNodes());
   </script>
 </body>
 </html>

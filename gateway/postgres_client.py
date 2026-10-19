@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 from sqlalchemy import create_engine, MetaData, Table, select, update
 from sqlalchemy.orm import sessionmaker
 import logging
@@ -54,6 +55,18 @@ class PostgresClient:
             conn.execute(stmt)
             conn.commit()
             logger.info(f"Upserted record {record_id} in {self.table_name}")
+
+    def column_kind(self, column):
+        """'bool' or 'number' for a column of the synced table, None if unknown."""
+        if self.table is None or column not in self.table.c:
+            return None
+        try:
+            python_type = self.table.c[column].type.python_type
+        except NotImplementedError:
+            return None
+        if python_type is bool:
+            return "bool"
+        return "number" if python_type in (int, float, Decimal) else None
 
     def disconnect(self):
         if self.engine is not None:

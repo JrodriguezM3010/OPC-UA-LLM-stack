@@ -8,5 +8,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY gateway/ ./gateway/
 COPY config/ ./config/
 
+# The tag mapping; mount a volume to survives redeploys
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+
+# Tag mapping API, reached through the chat UI's /api/ proxy
+EXPOSE 8085
 
 CMD ["python", "gateway/main.py"]

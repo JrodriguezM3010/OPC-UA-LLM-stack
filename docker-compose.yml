@@ -5,7 +5,6 @@ services:
       dockerfile: Dockerfile.gateway
     container_name: gateway
     environment:
-      vPLC_Runtime: ${vPLC_Runtime}
       OPCUA_URL: ${OPCUA_URL:-opc.tcp://host.docker.internal:4840}
       OPCUA_USER: ${OPCUA_USER:-}
       OPCUA_PASSWORD: ${OPCUA_PASSWORD:-}
@@ -16,6 +15,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - gateway_data:/app/data
     restart: unless-stopped
     depends_on:
       - db
@@ -113,6 +114,7 @@ services:
     environment:
       CHAT_UI_PORT: ${CHAT_UI_PORT:-8083}
       N8N_UPSTREAM: http://n8n:5678
+      GATEWAY_UPSTREAM: http://gateway:8085
     ports:
       - "${CHAT_UI_PORT:-8083}:${CHAT_UI_PORT:-8083}"
     volumes:
@@ -120,6 +122,7 @@ services:
       - ./chat-ui/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       - n8n
+      - gateway
     logging:
       driver: json-file
       options:
@@ -143,6 +146,7 @@ services:
         max-file: "3"
       
 volumes:
+  gateway_data:
   db_data:
   n8n_data:
   ollama_data:

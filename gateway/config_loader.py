@@ -25,12 +25,20 @@ def load_config(path="config/config.yaml"):
     config = replace_env(config)
 
     # Validate environment variables
-    required_env = ["vPLC_Runtime", "POSTGRES_PASSWORD"]
+    required_env = ["POSTGRES_PASSWORD"]
     for var in required_env:
         if not os.getenv(var):
             raise ValueError(f"Missing required environment variable: {var}")
-    required_config = ["opcua", "table", "mapping", "nodes", "sync"]
+    required_config = ["opcua", "table", "mapping", "sync"]
     for key in required_config:
         if key not in config:
             raise ValueError(f"Missing required field in config.yaml: {key}")
     return config
+
+def tag_definitions(config):
+    """The fixed set of tags: key -> DB column, and whether the AI writes it.
+    Which OPC UA node each tag reads is mapped from the chat UI, not here."""
+    mapping = config['mapping']
+    tags = {k: {"column": c, "writable": False} for k, c in mapping['opc_to_db'].items()}
+    tags.update({k: {"column": c, "writable": True} for k, c in mapping.get('commands_to_db', {}).items()})
+    return tags
