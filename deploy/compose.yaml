@@ -1,8 +1,7 @@
 # Deployment stack — pulls published images. No source tree, no build step.
 #
 # Required in .env:
-#   vPLC_Runtime, OPCUA_URL, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-#
+#   OPCUA_URL, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 # Optional in .env:
 #   OPENAI_API_KEY    only for the GPT workflow; without it use Ollama
 #   OPCUA_USER        empty means an anonymous connection
@@ -13,9 +12,8 @@ name: otee-tank-ai
 
 services:
   gateway:
-    image: juanotee/tank-ai-gateway:0.0.1
+    image: juanotee/tank-ai-gateway:0.0.2
     environment:
-      vPLC_Runtime: ${vPLC_Runtime:?vPLC_Runtime must be set}
       OPCUA_URL: ${OPCUA_URL:-opc.tcp://host.docker.internal:4840}
       OPCUA_USER: ${OPCUA_USER:-}
       OPCUA_PASSWORD: ${OPCUA_PASSWORD:-}
@@ -26,6 +24,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - gateway-data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -37,7 +37,7 @@ services:
         max-file: "3"
 
   db:
-    image: juanotee/tank-ai-db:0.0.1
+    image: juanotee/tank-ai-db:0.0.2
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -57,7 +57,7 @@ services:
         max-file: "3"
 
   n8n:
-    image: juanotee/tank-ai-n8n:0.0.1
+    image: juanotee/tank-ai-n8n:0.0.2
     environment:
       N8N_HOST: 0.0.0.0
       N8N_PORT: ${N8N_PORT:-5678}
@@ -94,14 +94,16 @@ services:
         max-file: "3"
 
   chat-ui:
-    image: juanotee/tank-ai-chatui:0.0.1
+    image: juanotee/tank-ai-chatui:0.0.2
     environment:
       CHAT_UI_PORT: ${CHAT_UI_PORT:-8083}
       N8N_UPSTREAM: http://n8n:5678
+      GATEWAY_UPSTREAM: http://gateway:8085
     ports:
       - "${CHAT_UI_PORT:-8083}:${CHAT_UI_PORT:-8083}"
     depends_on:
       - n8n
+      - gateway
     restart: unless-stopped
     logging:
       driver: json-file
@@ -110,7 +112,7 @@ services:
         max-file: "3"
 
   ollama:
-    image: juanotee/tank-ai-ollama:0.0.1
+    image: juanotee/tank-ai-ollama:0.0.2
     ports:
       - "11434:11434"
     volumes:
@@ -123,6 +125,7 @@ services:
         max-file: "3"
 
 volumes:
+  gateway-data:
   db-data:
   n8n-data:
   ollama-data:

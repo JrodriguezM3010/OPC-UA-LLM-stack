@@ -36,7 +36,6 @@
 
 - **LLM History**: The AI agent has no memory; conversations are independent, and it cannot remember previous interactions
 - **Python Tests**: There are currently no integrated tests for the Python program
-- **OPC Discovery Client**: Node discovery is not yet implemented; you must manually input OPC UA node IDs
 
 # Getting Started
 
@@ -47,6 +46,15 @@ Before starting, copy `.env.example` to `.env` and fill in your environment vari
 ## Configuration
 
 Edit `config/config.yaml` to set up your OPC UA, Postgres, and n8n connection details before running the gateway
+
+## Tag mapping
+
+The gateway ships with no runtime and no OPC UA node IDs. After the stack is up, open the chat UI, click **Tag mapping**, pick the vPLC runtime, and pick the node each tag reads from the list browsed from the server. Saving checks every node against the server (it must exist, match its DB column's type, and be writable for commands) and the gateway applies it within a few seconds, with no restart or rebuild.
+
+- **Runtime:** leave it on **Auto-detect** to use the only runtime on the server, or the one where every mapped node exists. Detection runs again when nothing reads, so a runtime redeployed under another name is picked up on its own
+- **Paths:** each tag stores its path *below* the runtime (`Tags.config.….TankLevel_PV`), so switching the runtime moves every tag at once
+- **Storage:** the mapping is saved to `/app/data/tag-map.json` in the gateway container (the `gateway-data` volume), so it survives restarts and redeploys
+- The set of tags and their DB columns stay fixed in `config/config.yaml` under `mapping`
 
 ## How to Run
 

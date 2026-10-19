@@ -6,4 +6,9 @@ server {
     location /webhook/ {
         proxy_pass ${N8N_UPSTREAM};
     }
+
+    location /api/ {
+        proxy_pass ${GATEWAY_UPSTREAM};
+        proxy_read_timeout 120s;
+    }
 }

@@ -1,12 +1,16 @@
+import os
+import threading
 import time
 import logging
 import logging.config
 import yaml
-from config_loader import load_config
-from opcua_client import OPCUAClient
+import api
+from config_loader import load_config, tag_definitions
+from opcua_client import OPCUAClient, node_id
 from postgres_client import PostgresClient
 from change_detector import ChangeDetector
 from sync_engine import SyncEngine
+from tag_store import TagStore
 
 # load logging configuration
 with open('config/logging.yaml', 'r') as f:
@@ -14,19 +18,44 @@ with open('config/logging.yaml', 'r') as f:
 logging.config.dictConfig(logging_config)
 logger = logging.getLogger(__name__)
 
+# With no runtime selected, re-detect it this often while none of the tags read
+REDETECT_SECONDS = 10
+
+def bind_nodes(opc, store):
+    """Point the OPC UA client at the stored mapping. With no runtime selected,
+    use the one the server offers. Does nothing when nothing changed."""
+    runtime, paths = store.snapshot()
+    if not runtime:
+        try:
+            runtime = opc.detect_runtime(paths)
+        except Exception as e:
+            logger.warning(f"Could not detect the runtime: {e}")
+            return
+    node_ids = {k: node_id(runtime, p) for k, p in paths.items()} if runtime else {}
+    if runtime == opc.runtime and node_ids == opc.node_ids:
+        return
+    opc.load_nodes(runtime, node_ids)
+
 def main():
     config = load_config()
     mapping = config['mapping']['opc_to_db']
+    tags = tag_definitions(config)
+    store = TagStore(os.getenv("GATEWAY_TAG_MAP", "data/tag-map.json"), tags)
+    store.load()
     opc = OPCUAClient(**config['opcua'])
-    all_nodes = {**config['nodes']['variables'], **config['nodes']['commands']}
     db = PostgresClient(**config['postgres'])
     detector = ChangeDetector()
     sync = SyncEngine(
         opc, db,
         config['table']['name'],
         config['table']['target_id'],
-        mapping  
+        mapping
     )
+
+    # Tag mapping API for the chat UI; saving sets `reload`
+    reload = threading.Event()
+    api.serve(int(os.getenv("GATEWAY_API_PORT", "8085")),
+              opc=opc, db=db, store=store, tags=tags, reload=reload)
 
     # OPC UA connection
     opc.connect(logger=logger, retry_interval=5)
@@ -34,19 +63,29 @@ def main():
     # DB connection
     db.connect(logger=logger, retry_interval=5)
 
-    # Load OPC UA nodes
-    opc.load_nodes(all_nodes)
+    # Bind the OPC UA nodes from the stored mapping
+    bind_nodes(opc, store)
+    last_bind = time.monotonic()
 
     try:
         while True:
-            
+
+            # Re-bind when the mapping is saved from the chat UI. With no runtime
+            # selected, also re-detect while nothing reads.
+            idle = set(opc.node_ids) <= opc.unresolved
+            redetect = not store.runtime and idle and time.monotonic() - last_bind > REDETECT_SECONDS
+            if reload.is_set() or redetect:
+                reload.clear()
+                bind_nodes(opc, store)
+                last_bind = time.monotonic()
+
             # OPC UA read
             try:
                 current_opc = opc.read_all()
             except Exception as e:
                 logger.error(f"OPC UA error: {e}. Reconnecting...")
                 opc.connect(logger=logger, retry_interval=5)
-                opc.load_nodes(all_nodes)
+                bind_nodes(opc, store)
                 continue
 
             # DB read
@@ -57,7 +96,7 @@ def main():
                 db.connect(logger=logger, retry_interval=5)
                 continue
 
-            # Detect OPC UA changes and sync to DB 
+            # Detect OPC UA changes and sync to DB
             opc_changes = detector.detect_opc_change(current_opc, detector.last_db)
             sync.sync_opc_to_db(opc_changes)
 
